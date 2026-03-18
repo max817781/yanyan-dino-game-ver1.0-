@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>諾諾小恐龍：抱抱大作戰</title>
+    <style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f7f7f7; font-family: sans-serif; overflow: hidden; }
+        #game-container { position: relative; border-bottom: 2px solid #535353; background-color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        canvas { display: block; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(255,255,255,0.9); z-index: 10; }
+        .btn { padding: 12px 30px; font-size: 20px; font-weight: bold; background: #333; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+        .hidden { display: none !important; }
+        #success-img { max-width: 300px; margin-bottom: 20px; display: block; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="start-screen" class="overlay">
+            <h1>諾諾小恐龍 GO!</h1>
+            <p>得到 10 分後去找諾諾抱抱吧！</p>
+            <button id="startBtn" class="btn">開始遊戲</button>
+        </div>
+
+        <div id="fail-screen" class="overlay hidden">
+            <h1 style="color: #d9534f;">GAME OVER</h1>
+            <button id="retryBtn" class="btn">再試一次</button>
+        </div>
+
+        <div id="success-screen" class="overlay hidden">
+            <img src="成功.png" id="success-img" alt="成功通關">
+            <button id="restartBtn" class="btn">重新開始</button>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = 800;
+canvas.height = 250;
+
+// === 圖片路徑設定 (直接讀取檔案) ===
+const heroImg = new Image(); heroImg.src = 'hero.png';
+const cactusImg = new Image(); cactusImg.src = 'cactus.png';
+const nonoImg = new Image(); nonoImg.src = 'nono.png';
+
+// === 遊戲變數 ===
+let isPlaying = false, score = 0, frame = 0, obstacles = [], targetNono = null;
+const dino = { x: 50, y: 190, w: 60, h: 60, dy: 0, g: 0.7, jump: -14, onGround: false };
+
+function startGame() {
+    document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+    isPlaying = true; score = 0; frame = 0; obstacles = []; targetNono = null;
+    dino.y = 190; dino.dy = 0;
+    update();
+}
+
+function update() {
+    if (!isPlaying) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. 物理運動
+    dino.dy += dino.g;
+    dino.y += dino.dy;
+    if (dino.y + dino.h > canvas.height) { dino.y = canvas.height - dino.h; dino.dy = 0; dino.onGround = true; } 
+    else { dino.onGround = false; }
+
+    // 2. 畫主角
+    ctx.drawImage(heroImg, dino.x, dino.y, dino.w, dino.h);
+
+    // 3. 處理仙人掌 (10分之前)
+    if (score < 10) {
+        frame++;
+        if (frame % 100 === 0) obstacles.push({ x: canvas.width, w: 30, h: 50 });
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            let o = obstacles[i];
+            o.x -= 6;
+            ctx.drawImage(cactusImg, o.x, canvas.height - o.h, o.w, o.h);
+
+            if (dino.x < o.x + o.w && dino.x + dino.w > o.x && dino.y + dino.h > canvas.height - o.h) {
+                isPlaying = false;
+                document.getElementById('fail-screen').classList.remove('hidden');
+            }
+            if (o.x + o.w < 0) { obstacles.splice(i, 1); score++; }
+        }
+    } 
+    // 4. 分數達成：諾諾出現
+    else {
+        if (!targetNono) targetNono = { x: canvas.width, y: 190, w: 60, h: 60 };
+        targetNono.x -= 3.5;
+        ctx.drawImage(nonoImg, targetNono.x, targetNono.y, targetNono.w, targetNono.h);
+
+        if (dino.x < targetNono.x + targetNono.w && dino.x + dino.w > targetNono.x && 
+            dino.y < targetNono.y + targetNono.h && dino.y + dino.h > targetNono.y) {
+            isPlaying = false;
+            document.getElementById('success-screen').classList.remove('hidden');
+        }
+    }
+
+    ctx.fillStyle = "#333";
+    ctx.font = "bold 20px sans-serif";
+    ctx.fillText("SCORE: " + score + "/10", canvas.width - 150, 40);
+
+    requestAnimationFrame(update);
+}
+
+document.getElementById('startBtn').onclick = startGame;
+document.getElementById('retryBtn').onclick = startGame;
+document.getElementById('restartBtn').onclick = startGame;
+
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+        e.preventDefault();
+        if (isPlaying && dino.onGround) dino.dy = dino.jump;
+    }
+});
+canvas.onmousedown = () => { if (isPlaying && dino.onGround) dino.dy = dino.jump; };
+</script>
+</body>
+</html>
